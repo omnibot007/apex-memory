@@ -1,0 +1,52 @@
+{
+  "name": "apex-memory",
+  "version": "0.1.0",
+  "description": "A write-side custody gate for agent memory. Authority is computed from the source, never claimed by the writer.",
+  "license": "MIT",
+  "author": "omnibot007",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "apex-memory-mcp": "./dist/mcp.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LINEAGE.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "agent-memory",
+    "mcp",
+    "provenance",
+    "custody",
+    "supersession",
+    "bitemporal",
+    "memory-poisoning"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "mcp": "node dist/mcp.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
+  }
+}
