@@ -1,5 +1,5 @@
 {
-  "name": "@omnibot007/apex-memory",
+  "name": "@omninbot/apex-memory",
   "version": "0.1.0",
   "description": "A write-side custody gate for agent memory. Authority is computed from the source, never claimed by the writer.",
   "license": "MIT",
