@@ -28,6 +28,24 @@ export {
 export { defaultMemoryDir, JsonlCustodyStore, MemoryCustodyStore } from './store.js';
 
 export {
+  ANTI_MARKERS,
+  decisionsFrom,
+  distill,
+  MARKERS,
+  type DistillOptions,
+  type DistillReport,
+} from './distill.js';
+
+export {
+  allReaders,
+  ClaudeReader,
+  KimiReader,
+  OpenCodeReader,
+  type TranscriptReader,
+  type Utterance,
+} from './readers.js';
+
+export {
   AUTHORITY_RANK,
   SOURCE_CEILING,
   type Authority,

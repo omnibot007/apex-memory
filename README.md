@@ -144,6 +144,38 @@ Tools exposed:
 
 Storage defaults to `~/.apex-memory/custody.jsonl`. Override with `APEX_MEMORY_HOME`.
 
+## Automatic capture across every harness
+
+```bash
+apex-memory-distill --dry-run     # see what would be captured
+apex-memory-distill               # sweep and write
+```
+
+One sweep reads **every** harness on the machine, whichever one triggered it:
+
+| Harness | Store it reads |
+|---|---|
+| Claude Code | `~/.claude/projects/<slug>/<session>.jsonl` |
+| kimi-code | `~/.kimi-code/sessions/**/agents/*/wire.jsonl` |
+| OpenCode | `~/.local/share/opencode/opencode.db` (SQLite) |
+
+It is **idempotent** — a second sweep writes nothing — which is why no per-harness hooks
+are needed. Wire it to one trigger you already have and every harness is covered.
+
+Two things worth knowing:
+
+**It writes at `observation`, not `policy`.** `user-decision` *permits* `policy`, but
+measured over 1,223 real utterances, surface markers cannot separate a standing rule from
+a one-off task — "make sure X" is how people phrase both. So the distiller records that
+you said something (true, quoted, attributable) and declines to assert that it binds.
+Promotion is a deliberate act: `--authority policy`, or a `custody_record` call you make
+on purpose. Agents propose; humans promote.
+
+**A live OpenCode locks its database, and SQLite reports that lock as
+`SQLITE_NOTADB` — "file is not a database"** — which reads exactly like corruption or
+encryption and is neither. The reader snapshots `.db`, `-wal` and `-shm` together to a
+temp directory and reads the copy.
+
 ---
 
 ## What this is not
