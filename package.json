@@ -1,5 +1,5 @@
 {
-  "name": "apex-memory",
+  "name": "@omnibot007/apex-memory",
   "version": "0.1.0",
   "description": "A write-side custody gate for agent memory. Authority is computed from the source, never claimed by the writer.",
   "license": "MIT",
@@ -15,6 +15,17 @@
   },
   "bin": {
     "apex-memory-mcp": "./dist/mcp.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/omnibot007/apex-memory.git"
+  },
+  "homepage": "https://github.com/omnibot007/apex-memory#readme",
+  "bugs": {
+    "url": "https://github.com/omnibot007/apex-memory/issues"
   },
   "files": [
     "dist",

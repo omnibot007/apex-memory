@@ -75,13 +75,16 @@ duplicates, ages out superseded rows, enforces a live-row budget, **never evicts
 ## Install
 
 ```bash
-npm install apex-memory
+npm install @omnibot007/apex-memory
 ```
+
+> **Note the scope.** The unscoped name `apex-memory` on npm belongs to an unrelated
+> project by a different author. Installing that will not give you this library.
 
 ## Library use
 
 ```ts
-import { JsonlCustodyStore, record, recallInForce, CustodyRefusedError } from 'apex-memory';
+import { JsonlCustodyStore, record, recallInForce, CustodyRefusedError } from '@omnibot007/apex-memory';
 
 const store = new JsonlCustodyStore();
 
@@ -123,7 +126,7 @@ Claude Code, Codex, Cursor, OpenCode, Windsurf, or anything else that speaks MCP
   "mcpServers": {
     "apex-memory": {
       "command": "npx",
-      "args": ["-y", "apex-memory", "apex-memory-mcp"]
+      "args": ["-y", "@omnibot007/apex-memory", "apex-memory-mcp"]
     }
   }
 }
