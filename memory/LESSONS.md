@@ -19,3 +19,15 @@
     Live catalog pulls before trusting any list. TokenRouter key rejected 401.
 14. icacls /grant is flaky here; .NET FileSecurity locks files reliably.
 15. Measure-Command swallows scriptblock output. Time with Stopwatch to files.
+16. Rite-discipline (2026-09-09, self-conviction x2): ran a recon mission wearing
+    the omnibrother name while violating it twice over — wrong roster
+    (apex role-names under an omni invocation), no tiers declared, no separate
+    Nemesis (graded own homework), and wrong rite entirely (/apex-pantheon is a
+    MISSION-driving liturgy: legs+guard+ruling; recon without legs/guard never
+    triggers it). Intel survived by brute force, not by rite. Law going forward:
+    recon goes /gods-true (seven named gods, declared tiers, blackbox Nemesis);
+    missions go /apex-pantheon verbatim (Wave 2 burns real legs, Wave 3 Simurg
+    verdicts every output, Wave 4 SPEND/GUARD/TELEMETRY receipt). A pantheon
+    that skips its own laws is expensive randomness. Never again.
+17. Tier honesty: this harness offers fixed subagent types — declare the actual
+    driver model for every god summoned. Fake haiku/opus labels are stolen valor.
