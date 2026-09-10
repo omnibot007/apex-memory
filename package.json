@@ -15,7 +15,8 @@
   },
   "bin": {
     "apex-memory-mcp": "./dist/mcp.js",
-    "apex-memory-distill": "./dist/cli.js"
+    "apex-memory-distill": "./dist/cli.js",
+    "apex-memory-manifest": "./dist/manifest-cli.js"
   },
   "publishConfig": {
     "access": "public"
