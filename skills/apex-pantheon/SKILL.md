@@ -20,7 +20,7 @@ and the return contract: VERDICT + RECEIPTS + HANDOFF FACTS (10 max).
 
 Leg order: openrouter-free, groq, cerebras, zenfree, cline-cli, kilo-cli,
 pollinations (keyed), then Go paid fallback ONLY on free-leg failure or
-explicit approval. Legs live in the fam-gods repo (legs.ts, cli-legs.ts);
+explicit approval. Legs live in the apex-pantheon repo (legs.ts, cli-legs.ts);
 keys arrive via files, never chat (see /keywire). Respect free-tier limits
 (20-30 RPM typical) — terse prompts, no chatter between gods, handoff facts
 only. Quota/429 hit = rotate legs, never hammer.

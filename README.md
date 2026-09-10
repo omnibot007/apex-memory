@@ -9,7 +9,7 @@ this repo REMEMBERS.
 - `memory/TELEMETRY.md` — log schemas and flywheel wiring.
 
 ## Working repos (referenced, not duplicated)
-- fam-gods (legs, CLI drivers, voice) · fam-browser (browser limbs) ·
+- apex-pantheon (legs, CLI drivers, voice) · fam-browser (browser limbs) ·
   SIMURG fork buff/fam-guard (guard tech) · Tonight's doctrine lives in the
   operator's ledger; this repo holds the pack's own mind.
 

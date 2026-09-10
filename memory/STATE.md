@@ -35,7 +35,7 @@ operator login pending. Agents-starter scaffold + first god port: next cook.
 ## Pending missions
 1. REBOOT (hypervisor fix) -> Docker -> Steel legs -> first live fam-browser drive.
 2. Guard-abort drill + god-loop join (Pi loop shape read at cook).
-3. README for fam-gods + tokenrouter re-key + pollinations key.
+3. README for apex-pantheon + tokenrouter re-key + pollinations key.
 4. Monthly: harvest -> recalibrate -> hell-week -> sidecar.
 
 ## Laws of this memory

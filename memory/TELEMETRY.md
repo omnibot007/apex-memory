@@ -4,10 +4,10 @@ Every god-round appends JSONL. No log, no learning. Schemas:
 
 ## legs.jsonl (~/.commandcode/fam-gods/)
 `{ts, leg, model, ok, cost, tried[]}` per failover completion; failures carry
-the packet (`failures[]`). Writer: fam-gods/legs.ts `tele()`.
+the packet (`failures[]`). Writer: apex-pantheon/legs.ts `tele()`.
 
 ## cli-legs.jsonl (~/.commandcode/fam-gods/)
-`{ts, leg, ok, wallMs, chars}` per CLI run. Writer: fam-gods/cli-legs.ts.
+`{ts, leg, ok, wallMs, chars}` per CLI run. Writer: apex-pantheon/cli-legs.ts.
 
 ## guard log (planned)
 Per-answer `{model, verdict, latency, reasons}` beside the above. Feeds the
