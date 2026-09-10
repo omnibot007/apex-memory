@@ -31,3 +31,23 @@
     that skips its own laws is expensive randomness. Never again.
 17. Tier honesty: this harness offers fixed subagent types — declare the actual
     driver model for every god summoned. Fake haiku/opus labels are stolen valor.
+18. Cold-start tax (2026-09-10): per-invocation model loads are the #1 latency
+    thief (speak.py paid full Kokoro load every reply, ~40s each). Fix = one
+    warm daemon (voice-server.py, localhost only, lazy pipeline) + thin client
+    with cold-path fallback. Generalize: any model touched twice gets a server.
+19. Two-strikes-and-report (self-conviction, 2026-09-10): a third silent retry
+    on one target is forbidden. Two failures -> stop, quote the packet, await
+    the operator. Silent retries burned more time than every bug combined.
+20. Smallest viable artifact: never haul freight for a letter job (720p x2 for
+    words = 60x oversize). Audio-only for listen-jobs, --max-downloads 1 trials
+    before bulk, caps stated before launch. The ORDER was oversized, not the pipe.
+21. No silent runs: every long command shows progress or runs background+poll.
+    An operator aborting blind is a telemetry failure, not impatience.
+22. Windows launch shape: bare `python` in Start-Process can die silent. Use the
+    full interpreter path + redirected stdout/stderr logs + port check. No log,
+    no launch claim.
+23. Token-budget discipline: half-million-token sessions come from redundant
+    re-reads and unverified retries. Batch independent probes in one block,
+    verify once, quote receipts, move. Verbosity is spend.
+24. Working compact (operator grant 2026-09-10): move freely, narrate in short
+    bursts, stop only for keys / destruction / reboots. Ask nothing twice.
