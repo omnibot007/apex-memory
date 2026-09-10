@@ -47,7 +47,9 @@ export {
 
 export {
   gitCommitsIn,
+  openCodeDbPath,
   rankRepos,
+  readOpenCodeOutcomes,
   readSessionOutcome,
   recordOutcome,
   renderReceipt,
