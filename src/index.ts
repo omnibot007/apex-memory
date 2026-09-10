@@ -46,6 +46,17 @@ export {
 } from './readers.js';
 
 export {
+  gitCommitsIn,
+  rankRepos,
+  readSessionOutcome,
+  recordOutcome,
+  renderReceipt,
+  repoRootOf,
+  type SessionOutcome,
+  type Spend,
+} from './outcomes.js';
+
+export {
   AUTHORITY_RANK,
   SOURCE_CEILING,
   type Authority,
