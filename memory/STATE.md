@@ -5,8 +5,8 @@ LIVE ($0): openrouter-free x3 (nemotron-lightning, north-mini-code, nemotron-ult
 go-paid-fallback x2 (deepseek-flash, glm-flash), groq (qwen3.8-27b),
 cerebras (qwen3.8-27b), zenfree (nemotron-lightning-free exact-match),
 cline-cli (cline-free/muse-spark-1.3-contributor), kilo-cli (deepseek-flash-free).
-PENDING KEYS: tokenrouter (last rejected, re-key), pollinations (free key signup).
-PARKED: tokenforge (Opus-5 only), Cline/Kilo APIs (in-app only, CLI-driven instead).
+PENDING KEYS: pollinations (free key signup). PARKED: tokenforge (Opus-5 only),
+Cline/Kilo APIs (in-app only, CLI-driven instead).
 
 ## Guard (SIMURG buff/fam-guard on omnibot007/SIMURG)
 Calibration: fam sidecar from 890 own texts (FPR 0.000, AUROC 1.0).
@@ -16,6 +16,12 @@ Watch item: repetition 12/14 (split-noise suspect, telemetry will confirm).
 ## Keys (paths only — values never enter this repo)
 .go-key, .groq-key, .cerebras-key, .tokenforge-key, .tokenrouter-key
 (all in ~/.config/opencode/, owner-only ACL). Missing: pollinations.
+
+## Cloud (wired 2026-09-09)
+Workers AI leg PROVEN (llama-3.1-8b answers, account 6d329e..bf3fdbc, key
+.cloudflare-key locked). REST shape is NOT OpenAI-compatible (/ai/run/) — needs
+a custom pi-ai provider impl before joining rotation. Wrangler 4.130.0 installed,
+operator login pending. Agents-starter scaffold + first god port: next cook.
 
 ## Pending missions
 1. REBOOT (hypervisor fix) -> Docker -> Steel legs -> first live fam-browser drive.
