@@ -168,6 +168,28 @@ function corroborated(rows: readonly CustodiedFact[]): CustodiedFact[] {
   return rows.filter((row) => corroborationOf(byClaim.get(normalizeClaim(row.text)) ?? []) >= 2);
 }
 
+/** Terms of a free-text query. Empty when the query is absent or only whitespace. */
+export function queryTerms(query: string | undefined): string[] {
+  if (typeof query !== 'string') return [];
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+
+/**
+ * Does a row satisfy every term?
+ *
+ * Searches the claim, the retained quote and the locator. The locator is included on
+ * purpose: "opencode ses_f76b" is a legitimate way to ask what a given session established.
+ */
+export function matchesQuery(row: CustodiedFact, terms: readonly string[]): boolean {
+  if (terms.length === 0) return true;
+  const haystack = `${row.text}\n${row.quote}\n${row.sourceLocator}`.toLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
+
 /**
  * Everything in force for a project, ordered, with NO paging applied.
  *
@@ -182,8 +204,10 @@ async function inForce(
   const all = await store.list(project);
   const floor = AUTHORITY_RANK[options?.minAuthority ?? 'observation'];
   const asOf = options?.asOfMs;
+  const terms = queryTerms(options?.query);
 
   let rows = all.filter((row) => {
+    if (!matchesQuery(row, terms)) return false;
     if (row.supersededBy !== null) return false;
     if (row.archivedAtMs !== null) return false;
     if (!isNonEmpty(row.text) || !isNonEmpty(row.quote)) return false;

@@ -129,6 +129,12 @@ function buildServer(): McpServer {
         requireCorroboration: z.boolean().optional(),
         limit: z.number().optional().describe(`Page size. Defaults to ${DEFAULT_RECALL_LIMIT}.`),
         offset: z.number().optional().describe('Rows to skip. Use to page through a project.'),
+        query: z
+          .string()
+          .optional()
+          .describe(
+            'Free-text filter. Space-separated terms, ALL of which must appear in the claim, quote or locator. Case insensitive, plain substring.',
+          ),
       }),
     },
     async (args) => {
@@ -141,15 +147,27 @@ function buildServer(): McpServer {
           : { requireCorroboration: args.requireCorroboration }),
         ...(args.limit === undefined ? {} : { limit: args.limit }),
         ...(args.offset === undefined ? {} : { offset: args.offset }),
+        ...(args.query === undefined ? {} : { query: args.query }),
       };
       const rows = await recallInForce(store, args.project, options);
       const total = await countInForce(store, args.project, options);
-      if (total === 0) return text('(nothing in force — abstaining rather than guessing)');
+      if (total === 0) {
+        // Say WHICH question came back empty: "nothing matches" and "nothing exists" are
+        // different answers, and conflating them invites a guess.
+        const held = await countInForce(store, args.project);
+        return text(
+          args.query !== undefined && held > 0
+            ? `0 of ${held} in-force rows for '${args.project}' match ${JSON.stringify(args.query)} — abstaining rather than guessing. Try fewer terms.`
+            : '(nothing in force — abstaining rather than guessing)',
+        );
+      }
 
       const offset = Math.max(0, Math.floor(args.offset ?? 0));
       const shown = offset + rows.length;
       const header =
-        `${total} in force for '${args.project}' — showing ${rows.length}` +
+        `${total} in force for '${args.project}'` +
+        (args.query === undefined ? '' : ` matching ${JSON.stringify(args.query)}`) +
+        ` — showing ${rows.length}` +
         (offset > 0 ? ` from offset ${offset}` : '') +
         '.';
       const more =

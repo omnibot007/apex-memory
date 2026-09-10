@@ -271,3 +271,63 @@ describe('recall paging', () => {
     expect(await countInForce(store, 'apex', { minAuthority: 'conjecture' })).toBe(2);
   });
 });
+
+describe('recall query — the search clone (Phase 2)', () => {
+  async function seeded() {
+    const store = new MemoryCustodyStore();
+    await record(store, req({ text: 'the Nero clips channel has 98 videos', quote: 'always branch', validFromMs: 3_000, recordedAtMs: 3_000 }));
+    await record(store, req({ text: 'the Nero main channel has 480 videos', quote: 'always branch', validFromMs: 2_000, recordedAtMs: 2_000 }));
+    await record(store, req({ text: 'TranscriptAPI is the paid second barrel', quote: 'always branch', validFromMs: 1_000, recordedAtMs: 1_000, sourceLocator: 'opencode:ses_f76b#p1' }));
+    return store;
+  }
+
+  it('finds rows by a single term, case insensitively', async () => {
+    const store = await seeded();
+    expect((await recallInForce(store, 'apex', { query: 'nero' })).length).toBe(2);
+    expect((await recallInForce(store, 'apex', { query: 'NERO' })).length).toBe(2);
+    expect((await recallInForce(store, 'apex', { query: 'transcriptapi' })).length).toBe(1);
+  });
+
+  it('ANDs multiple terms rather than ORing them', async () => {
+    const store = await seeded();
+    expect((await recallInForce(store, 'apex', { query: 'nero clips' })).length).toBe(1);
+    expect((await recallInForce(store, 'apex', { query: 'nero 480' })).length).toBe(1);
+    // both terms exist in the store but never in the same row
+    expect((await recallInForce(store, 'apex', { query: 'clips 480' })).length).toBe(0);
+  });
+
+  it('searches the locator too, so a session can be interrogated', async () => {
+    const store = await seeded();
+    expect((await recallInForce(store, 'apex', { query: 'ses_f76b' })).length).toBe(1);
+  });
+
+  it('treats an absent or blank query as no filter', async () => {
+    const store = await seeded();
+    const all = (await recallInForce(store, 'apex')).length;
+    expect((await recallInForce(store, 'apex', { query: '' })).length).toBe(all);
+    expect((await recallInForce(store, 'apex', { query: '   ' })).length).toBe(all);
+  });
+
+  it('counts and pages the FILTERED set, not the whole project', async () => {
+    const store = await seeded();
+    expect(await countInForce(store, 'apex', { query: 'nero' })).toBe(2);
+    expect(await countInForce(store, 'apex')).toBe(3);
+    const page = await recallInForce(store, 'apex', { query: 'nero', limit: 1 });
+    expect(page).toHaveLength(1);
+    // newest-first survives filtering
+    expect(page[0]?.text).toContain('clips');
+    expect((await recallInForce(store, 'apex', { query: 'nero', limit: 1, offset: 1 }))[0]?.text).toContain('main');
+  });
+
+  it('returns nothing for a term no row contains — never a near miss', async () => {
+    const store = await seeded();
+    expect(await recallInForce(store, 'apex', { query: 'kubernetes' })).toEqual([]);
+  });
+
+  it('respects the authority floor while searching', async () => {
+    const store = new MemoryCustodyStore();
+    await record(store, req({ text: 'nero guess', sourceKind: 'assistant-claim', claimedAuthority: 'conjecture' }));
+    expect(await recallInForce(store, 'apex', { query: 'nero' })).toEqual([]);
+    expect((await recallInForce(store, 'apex', { query: 'nero', minAuthority: 'conjecture' })).length).toBe(1);
+  });
+});

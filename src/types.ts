@@ -126,6 +126,15 @@ export interface RecallOptions {
   readonly limit?: number;
   /** Rows to skip before the page starts. Pair with `limit` to page a whole project. */
   readonly offset?: number;
+  /**
+   * Free-text filter. Whitespace-separated terms, ALL of which must appear (case
+   * insensitive) somewhere in the row's claim, quote, or locator.
+   *
+   * AND, not OR: a memory search with one broad term returning everything is the same as
+   * no search. Matching is plain substring — deliberately not fuzzy, so that a row either
+   * contains what you asked for or is honestly absent.
+   */
+  readonly query?: string;
 }
 
 export interface CustodyStore {
