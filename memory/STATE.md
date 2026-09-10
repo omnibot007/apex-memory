@@ -19,6 +19,12 @@ Ghost Downloader 4.3.7 portable (tools/ghost-app), RPC :16800 proven
 SSL on, fingerprint on, GH mirror on. Rite: /ghost-fetch skill (live).
 GPL-3.0: drive only, never vendor. Laws: legal freight only.
 
+## Harvest limbs (wired 2026-09-10)
+gallery-dl 1.32.11 (tools/gallery-dl, 3844 extractor lines, GPL-2.0 tool-use
+only): Danbooru safe drill landed byte-verified. Rite: /gallery-rip (live).
+faster-whisper (tools/faster-whisper, MIT take-friendly): george-test.wav via
+tiny/cpu/int8, one word off ground truth. Rite: /whisper-scribe (live).
+
 ## Keys (paths only — values never enter this repo)
 .go-key, .groq-key, .cerebras-key, .tokenforge-key, .tokenrouter-key
 (all in ~/.config/opencode/, owner-only ACL). Missing: pollinations.
