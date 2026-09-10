@@ -13,6 +13,12 @@ Calibration: fam sidecar from 890 own texts (FPR 0.000, AUROC 1.0).
 Hell-week: slow/mixed/short/code trials green; defended FPR 0.051 (documented).
 Watch item: repetition 12/14 (split-noise suspect, telemetry will confirm).
 
+## Fetch limb (wired 2026-09-10)
+Ghost Downloader 4.3.7 portable (tools/ghost-app), RPC :16800 proven
+(handshake + bert config 570B byte-perfect). Tuned: own folder, 6 lanes,
+SSL on, fingerprint on, GH mirror on. Rite: /ghost-fetch skill (live).
+GPL-3.0: drive only, never vendor. Laws: legal freight only.
+
 ## Keys (paths only — values never enter this repo)
 .go-key, .groq-key, .cerebras-key, .tokenforge-key, .tokenrouter-key
 (all in ~/.config/opencode/, owner-only ACL). Missing: pollinations.
