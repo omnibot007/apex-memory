@@ -44,6 +44,15 @@ export const SOURCE_CEILING: Readonly<Record<SourceKind, Authority>> = {
 
 export type FactKind = 'fact' | 'decision' | 'pattern';
 
+/**
+ * Default page size for `recallInForce`.
+ *
+ * Named on purpose. A silent slice is how a memory store stops answering: past this many
+ * in-force rows, recall returns a PAGE and looks exactly like the whole truth. Callers that
+ * need the rest must page with `offset`, and `countInForce` tells them whether there is a rest.
+ */
+export const DEFAULT_RECALL_LIMIT = 50;
+
 export type CustodyDenial =
   | 'authority-exceeds-source'
   | 'quote-not-in-source'
@@ -115,6 +124,8 @@ export interface RecallOptions {
   /** Withhold claims that lack independent, non-conjecture corroboration. */
   readonly requireCorroboration?: boolean;
   readonly limit?: number;
+  /** Rows to skip before the page starts. Pair with `limit` to page a whole project. */
+  readonly offset?: number;
 }
 
 export interface CustodyStore {

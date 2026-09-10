@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   admitCustody,
   corroborationOf,
+  countInForce,
   CustodyRefusedError,
   isCorroborating,
   recallInForce,
@@ -13,6 +14,7 @@ import {
   supersede,
 } from '../src/custody.js';
 import { MemoryCustodyStore } from '../src/store.js';
+import { DEFAULT_RECALL_LIMIT } from '../src/types.js';
 import type { Authority, CustodyRequest, SourceKind } from '../src/types.js';
 
 const SOURCE = 'the operator said: always branch before committing to main';
@@ -207,5 +209,65 @@ describe('store lifecycle', () => {
     expect((await recallInForce(store, 'apex')).map((r) => r.text)).not.toContain('a guess');
     expect((await recallInForce(store, 'other')).map((r) => r.text)).toEqual(['elsewhere']);
     expect(await recallInForce(store, 'apex', { limit: 1 })).toHaveLength(1);
+  });
+});
+
+describe('recall paging', () => {
+  /** 120 rows: more than DEFAULT_RECALL_LIMIT, so the default page cannot be the whole truth. */
+  async function seeded(): Promise<MemoryCustodyStore> {
+    const store = new MemoryCustodyStore();
+    for (let i = 0; i < 120; i++) {
+      await record(store, req({ text: `row ${i}`, validFromMs: 1_000 + i, recordedAtMs: 1_000 + i }));
+    }
+    return store;
+  }
+
+  it('defaults to DEFAULT_RECALL_LIMIT and reports the true total separately', async () => {
+    const store = await seeded();
+    expect(DEFAULT_RECALL_LIMIT).toBe(50);
+    expect(await recallInForce(store, 'apex')).toHaveLength(DEFAULT_RECALL_LIMIT);
+    // The defect this guards: a 50-row page used to be indistinguishable from 50 rows total.
+    expect(await countInForce(store, 'apex')).toBe(120);
+  });
+
+  it('pages the whole project without gaps, overlaps or drops', async () => {
+    const store = await seeded();
+    const total = await countInForce(store, 'apex');
+    const seen: string[] = [];
+    for (let offset = 0; offset < total; offset += 25) {
+      const page = await recallInForce(store, 'apex', { limit: 25, offset });
+      // full pages until the tail, which is the remainder — 120 / 25 leaves 20
+      expect(page).toHaveLength(Math.min(25, total - offset));
+      seen.push(...page.map((r) => r.text));
+    }
+    expect(seen).toHaveLength(120);
+    expect(new Set(seen).size).toBe(120);
+    // newest-first ordering survives paging
+    expect(seen[0]).toBe('row 119');
+    expect(seen.at(-1)).toBe('row 0');
+  });
+
+  it('returns empty past the end rather than wrapping', async () => {
+    const store = await seeded();
+    expect(await recallInForce(store, 'apex', { offset: 120 })).toHaveLength(0);
+    expect(await recallInForce(store, 'apex', { offset: 500 })).toHaveLength(0);
+  });
+
+  it('ignores a negative or fractional offset instead of mis-slicing', async () => {
+    const store = await seeded();
+    const head = (await recallInForce(store, 'apex', { limit: 3 })).map((r) => r.text);
+    expect((await recallInForce(store, 'apex', { limit: 3, offset: -10 })).map((r) => r.text)).toEqual(head);
+    expect((await recallInForce(store, 'apex', { limit: 3, offset: 0.9 })).map((r) => r.text)).toEqual(head);
+  });
+
+  it('counts what the SAME options would return, not the unfiltered project', async () => {
+    const store = new MemoryCustodyStore();
+    await record(store, req({ text: 'hard fact' }));
+    await record(
+      store,
+      req({ text: 'a guess', sourceKind: 'assistant-claim', claimedAuthority: 'conjecture' }),
+    );
+    expect(await countInForce(store, 'apex')).toBe(1);
+    expect(await countInForce(store, 'apex', { minAuthority: 'conjecture' })).toBe(2);
   });
 });

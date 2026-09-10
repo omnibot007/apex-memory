@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 
 import {
   AUTHORITY_RANK,
+  DEFAULT_RECALL_LIMIT,
   SOURCE_CEILING,
   type Authority,
   type CustodiedFact,
@@ -167,7 +168,13 @@ function corroborated(rows: readonly CustodiedFact[]): CustodiedFact[] {
   return rows.filter((row) => corroborationOf(byClaim.get(normalizeClaim(row.text)) ?? []) >= 2);
 }
 
-export async function recallInForce(
+/**
+ * Everything in force for a project, ordered, with NO paging applied.
+ *
+ * Private on purpose: `recallInForce` and `countInForce` both go through here, so a page
+ * and its total can never be computed by two filters that have drifted apart.
+ */
+async function inForce(
   store: CustodyStore,
   project: string,
   options?: RecallOptions,
@@ -189,6 +196,31 @@ export async function recallInForce(
   });
 
   if (options?.requireCorroboration === true) rows = corroborated(rows);
-  rows = rows.toSorted((a, b) => b.validFromMs - a.validFromMs);
-  return rows.slice(0, options?.limit ?? 50);
+  return rows.toSorted((a, b) => b.validFromMs - a.validFromMs);
+}
+
+/**
+ * One page of in-force memory, newest first.
+ *
+ * Pages rather than truncating: `offset` walks the rest. Ask `countInForce` with the same
+ * options to learn whether a page is the whole answer or just the front of it.
+ */
+export async function recallInForce(
+  store: CustodyStore,
+  project: string,
+  options?: RecallOptions,
+): Promise<CustodiedFact[]> {
+  const rows = await inForce(store, project, options);
+  const offset = Math.max(0, Math.floor(options?.offset ?? 0));
+  const limit = Math.max(0, Math.floor(options?.limit ?? DEFAULT_RECALL_LIMIT));
+  return rows.slice(offset, offset + limit);
+}
+
+/** How many rows are in force for these options, ignoring `limit` and `offset`. */
+export async function countInForce(
+  store: CustodyStore,
+  project: string,
+  options?: RecallOptions,
+): Promise<number> {
+  return (await inForce(store, project, options)).length;
 }

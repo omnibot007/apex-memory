@@ -15,8 +15,16 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 
 import { compactProject } from './compaction.js';
-import { admitCustody, CustodyRefusedError, recallInForce, record, supersede } from './custody.js';
+import {
+  admitCustody,
+  countInForce,
+  CustodyRefusedError,
+  recallInForce,
+  record,
+  supersede,
+} from './custody.js';
 import { JsonlCustodyStore } from './store.js';
+import { DEFAULT_RECALL_LIMIT } from './types.js';
 import type { Authority, CustodiedFact, FactKind, SourceKind } from './types.js';
 
 const store = new JsonlCustodyStore();
@@ -112,18 +120,19 @@ function buildServer(): McpServer {
     'custody_recall',
     {
       description:
-        'Read in-force memory. Superseded and archived rows are never returned. Set requireCorroboration to withhold claims that lack two independent non-conjecture sources.',
+        'Read in-force memory, newest first. Superseded and archived rows are never returned. Set requireCorroboration to withhold claims that lack two independent non-conjecture sources. Returns one PAGE and always states the in-force total, so a partial answer can never pass for the whole one — walk the rest with offset.',
       inputSchema: z.object({
         project: z.string(),
         kind: factKind.optional(),
         minAuthority: authority.optional(),
         asOfMs: z.number().optional().describe('Point-in-time recall.'),
         requireCorroboration: z.boolean().optional(),
-        limit: z.number().optional(),
+        limit: z.number().optional().describe(`Page size. Defaults to ${DEFAULT_RECALL_LIMIT}.`),
+        offset: z.number().optional().describe('Rows to skip. Use to page through a project.'),
       }),
     },
     async (args) => {
-      const rows = await recallInForce(store, args.project, {
+      const options = {
         ...(args.kind === undefined ? {} : { kind: args.kind as FactKind }),
         ...(args.minAuthority === undefined ? {} : { minAuthority: args.minAuthority as Authority }),
         ...(args.asOfMs === undefined ? {} : { asOfMs: args.asOfMs }),
@@ -131,9 +140,26 @@ function buildServer(): McpServer {
           ? {}
           : { requireCorroboration: args.requireCorroboration }),
         ...(args.limit === undefined ? {} : { limit: args.limit }),
-      });
-      if (rows.length === 0) return text('(nothing in force — abstaining rather than guessing)');
-      return text(rows.map(line).join('\n'));
+        ...(args.offset === undefined ? {} : { offset: args.offset }),
+      };
+      const rows = await recallInForce(store, args.project, options);
+      const total = await countInForce(store, args.project, options);
+      if (total === 0) return text('(nothing in force — abstaining rather than guessing)');
+
+      const offset = Math.max(0, Math.floor(args.offset ?? 0));
+      const shown = offset + rows.length;
+      const header =
+        `${total} in force for '${args.project}' — showing ${rows.length}` +
+        (offset > 0 ? ` from offset ${offset}` : '') +
+        '.';
+      const more =
+        shown < total
+          ? `\n(${total - shown} more not shown — re-call with offset ${shown})`
+          : '';
+      if (rows.length === 0) {
+        return text(`${header}\n(offset ${offset} is past the end of ${total} rows)`);
+      }
+      return text(`${header}\n${rows.map(line).join('\n')}${more}`);
     },
   );
 
