@@ -24,10 +24,16 @@
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 
 import { record, supersede } from './custody.js';
 import type { CustodyStore } from './types.js';
+
+// This package is ESM, where bare `require` does not exist. node:sqlite has no stable
+// ESM named export across Node versions, so bridge to CJS explicitly (as readers.ts does).
+const nodeRequire = createRequire(import.meta.url);
 
 /** Token spend, summed from the transcript's own usage records. */
 export interface Spend {
@@ -51,6 +57,10 @@ export interface SessionOutcome {
   readonly repos: ReadonlyArray<readonly [string, number]>;
   readonly project: string;
   readonly commits: readonly string[];
+  /** OpenCode names its sessions; Claude Code does not. */
+  readonly title?: string | undefined;
+  /** OpenCode tracks real dollars. 0 is honest on a free model, not missing data. */
+  readonly costUsd?: number | undefined;
 }
 
 /** Walk up from a file to the directory holding `.git`. Returns null outside any repo. */
@@ -225,17 +235,199 @@ function findRepoByName(name: string): string | null {
   return null;
 }
 
+/* ------------------------------------------------------------------ OpenCode --- */
+
+/**
+ * OpenCode keeps outcomes in SQLite, and keeps them BETTER than Claude Code does: the
+ * `session` table already carries `cost`, all five token counters, the model and the
+ * title. No summing required -- the harness did it.
+ *
+ * Two traps, both verified on this machine:
+ *
+ * 1. `session.directory` is the process cwd, so it reads `...\Programs\Warp` for work
+ *    that actually landed in kimi-apex and missions. It is the SAME defect rankRepos()
+ *    exists to fix, so the project is derived from write/edit tool calls here too --
+ *    never from that column.
+ * 2. `summary_files` is 0 even on sessions with 41 writes and 75 edits. It is not
+ *    populated; the file list has to come from the `part` table.
+ *
+ * The db is held open by a running OpenCode, and SQLite reports a live lock as
+ * SQLITE_NOTADB ("file is not a database"), which reads exactly like corruption and is
+ * not. Snapshot db+wal+shm together and read the copy -- same fix as OpenCodeReader.
+ */
+export function openCodeDbPath(): string {
+  return path.join(os.homedir(), '.local', 'share', 'opencode', 'opencode.db');
+}
+
+function snapshotDb(dbPath: string): string | null {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-oco-'));
+  try {
+    for (const suffix of ['', '-wal', '-shm']) {
+      const src = `${dbPath}${suffix}`;
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, path.join(tmp, `${path.basename(dbPath)}${suffix}`));
+      }
+    }
+    return path.join(tmp, path.basename(dbPath));
+  } catch {
+    try {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+}
+
+/** `model` is stored as a JSON blob, not a string. Pull the id, fall back to raw. */
+function modelIdOf(raw: unknown): string {
+  if (typeof raw !== 'string' || raw.length === 0) return 'unknown';
+  try {
+    const m = JSON.parse(raw) as { id?: unknown; variant?: unknown };
+    if (typeof m.id === 'string') {
+      return typeof m.variant === 'string' ? `${m.id}:${m.variant}` : m.id;
+    }
+  } catch {
+    /* not JSON -- use it as-is */
+  }
+  return raw;
+}
+
+const WRITE_TOOLS = new Set(['write', 'edit', 'patch', 'multiedit']);
+
+function filesWrittenIn(
+  db: { prepare(sql: string): { all(...p: unknown[]): unknown[] } },
+  sessionId: string,
+): string[] {
+  const files = new Set<string>();
+  let rows: unknown[] = [];
+  try {
+    rows = db.prepare('SELECT data FROM part WHERE session_id = ?').all(sessionId);
+  } catch {
+    return [];
+  }
+  for (const r of rows) {
+    const data = (r as { data?: unknown }).data;
+    if (typeof data !== 'string') continue;
+    let d: { type?: unknown; tool?: unknown; state?: { input?: Record<string, unknown> } };
+    try {
+      d = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    if (d.type !== 'tool' || typeof d.tool !== 'string') continue;
+    if (!WRITE_TOOLS.has(d.tool)) continue;
+    const input = d.state?.input;
+    const p = input?.['filePath'] ?? input?.['file_path'] ?? input?.['path'];
+    if (typeof p === 'string' && p.length > 1) files.add(p);
+  }
+  return [...files];
+}
+
+/**
+ * Read finished OpenCode sessions as outcomes. `sinceMs` bounds the sweep so a hook does
+ * not re-derive 136 sessions on every close.
+ */
+export function readOpenCodeOutcomes(
+  sinceMs: number,
+  dbPath: string = openCodeDbPath(),
+): SessionOutcome[] {
+  if (!fs.existsSync(dbPath)) return [];
+  const copy = snapshotDb(dbPath);
+  if (copy === null) return [];
+  const tmpDir = path.dirname(copy);
+  const out: SessionOutcome[] = [];
+
+  try {
+    const sqlite = nodeRequire('node:sqlite') as {
+      DatabaseSync: new (
+        p: string,
+        o?: object,
+      ) => {
+        prepare(sql: string): { all(...p: unknown[]): unknown[] };
+        close(): void;
+      };
+    };
+    const db = new sqlite.DatabaseSync(copy, { readOnly: true });
+    const sessions = db
+      .prepare(
+        `SELECT id, title, model, cost, tokens_input, tokens_output, tokens_cache_read,
+                tokens_cache_write, time_created, time_updated
+           FROM session
+          WHERE time_updated >= ?
+          ORDER BY time_updated DESC`,
+      )
+      .all(sinceMs) as Array<Record<string, unknown>>;
+
+    for (const s of sessions) {
+      const id = String(s['id'] ?? '');
+      if (id === '') continue;
+      const files = filesWrittenIn(db, id);
+      if (files.length === 0) continue;
+
+      const repos = rankRepos(files);
+      const startedAtMs = Number(s['time_created'] ?? 0);
+      const endedAtMs = Number(s['time_updated'] ?? startedAtMs);
+      const num = (k: string): number => Number(s[k] ?? 0);
+
+      out.push({
+        sessionId: id,
+        transcriptPath: `opencode:${id}`,
+        startedAtMs,
+        endedAtMs,
+        spend: {
+          models: [modelIdOf(s['model'])],
+          input: num('tokens_input'),
+          output: num('tokens_output'),
+          cacheRead: num('tokens_cache_read'),
+          cacheWrite: num('tokens_cache_write'),
+          messages: 0,
+        },
+        filesWritten: files,
+        toolCalls: 0,
+        repos,
+        project: repos[0]?.[0] ?? 'unfiled',
+        commits: gitCommitsIn(repos, startedAtMs, endedAtMs),
+        title: typeof s['title'] === 'string' ? s['title'] : undefined,
+        costUsd: num('cost'),
+      });
+    }
+    db.close();
+  } catch {
+    /* an unreadable store is not a hook failure */
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+  return out;
+}
+
 const fmt = (n: number): string => n.toLocaleString('en-US');
+
+/**
+ * The spend line, used as BOTH the receipt's token row and the custody quote. The gate
+ * refuses a write whose quote is not a verbatim substring of its sourceText, so deriving
+ * them from one function makes that structural rather than a thing to remember.
+ */
+function tokenLine(o: SessionOutcome): string {
+  const m = o.spend.messages > 0 ? ` over ${fmt(o.spend.messages)} messages` : '';
+  return `tokens in=${fmt(o.spend.input)} out=${fmt(o.spend.output)} cacheR=${fmt(o.spend.cacheRead)} cacheW=${fmt(o.spend.cacheWrite)}${m}`;
+}
 
 /** The literal receipt block. This is the sourceText the custody gate digests. */
 export function renderReceipt(o: SessionOutcome): string {
   const mins = Math.round((o.endedAtMs - o.startedAtMs) / 60_000);
   const lines = [
     `SESSION ${o.sessionId}`,
+    ...(o.title === undefined ? [] : [`title ${o.title}`]),
     `window ${new Date(o.startedAtMs).toISOString()} -> ${new Date(o.endedAtMs).toISOString()} (${mins} min)`,
     `model ${o.spend.models.join(', ') || 'unknown'}`,
-    `tokens in=${fmt(o.spend.input)} out=${fmt(o.spend.output)} cacheR=${fmt(o.spend.cacheRead)} cacheW=${fmt(o.spend.cacheWrite)} over ${fmt(o.spend.messages)} messages`,
-    `tool calls ${fmt(o.toolCalls)}   files written ${o.filesWritten.length}`,
+    tokenLine(o),
+    ...(o.costUsd === undefined ? [] : [`cost $${o.costUsd.toFixed(4)}`]),
+    `files written ${o.filesWritten.length}${o.toolCalls > 0 ? `   tool calls ${fmt(o.toolCalls)}` : ''}`,
     `repos touched ${o.repos.map(([n, c]) => `${n}(${c})`).join(' ') || 'none'}`,
     `commits ${o.commits.length}`,
   ];
@@ -257,16 +449,21 @@ export async function recordOutcome(
   o: SessionOutcome,
   nowMs: number = Date.now(),
 ): Promise<string | null> {
-  if (o.filesWritten.length === 0 && o.commits.length === 0) return null;
+  // `repos` already excludes scratchpad and Temp, so an empty one means the session wrote
+  // nothing durable. Measured: gating on filesWritten alone banked 10 `unfiled` rows for
+  // sessions whose entire output was temp files. A scratch session is not an outcome.
+  if (o.repos.length === 0 && o.commits.length === 0) return null;
 
   const receipt = renderReceipt(o);
-  const quote = `tokens in=${fmt(o.spend.input)} out=${fmt(o.spend.output)} cacheR=${fmt(o.spend.cacheRead)} cacheW=${fmt(o.spend.cacheWrite)} over ${fmt(o.spend.messages)} messages`;
+  const quote = tokenLine(o);
   const mins = Math.round((o.endedAtMs - o.startedAtMs) / 60_000);
+  const cost = o.costUsd === undefined ? '' : ` cost $${o.costUsd.toFixed(4)};`;
 
   const text =
-    `SESSION OUTCOME ${o.sessionId} (${mins} min, ${o.spend.models.join(', ') || 'unknown model'}): ` +
+    `SESSION OUTCOME ${o.sessionId}${o.title === undefined ? '' : ` "${o.title}"`} ` +
+    `(${mins} min, ${o.spend.models.join(', ') || 'unknown model'}): ` +
     `${o.filesWritten.length} files written across ${o.repos.map(([n, c]) => `${n}(${c})`).join(' ') || 'no repo'}; ` +
-    `${o.commits.length} commit(s)${o.commits.length > 0 ? `: ${o.commits.slice(0, 4).join('; ')}` : ''}; ` +
+    `${o.commits.length} commit(s)${o.commits.length > 0 ? `: ${o.commits.slice(0, 4).join('; ')}` : ''};${cost} ` +
     `spend in=${fmt(o.spend.input)} out=${fmt(o.spend.output)} cacheRead=${fmt(o.spend.cacheRead)} cacheWrite=${fmt(o.spend.cacheWrite)}.`;
 
   const locator = `outcome:${o.transcriptPath}`;

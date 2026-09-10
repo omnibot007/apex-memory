@@ -1,10 +1,17 @@
 import fs from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { readSessionOutcome, rankRepos, recordOutcome, renderReceipt } from '../src/outcomes.js';
+import {
+  rankRepos,
+  readOpenCodeOutcomes,
+  readSessionOutcome,
+  recordOutcome,
+  renderReceipt,
+} from '../src/outcomes.js';
 import { MemoryCustodyStore } from '../src/store.js';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'apex-outcomes-'));
@@ -116,6 +123,18 @@ describe('recordOutcome — receipts earn `fact`, and only one row stays live', 
     expect(await recordOutcome(new MemoryCustodyStore(), o!)).toBeNull();
   });
 
+  /** Measured: gating on filesWritten alone banked 10 `unfiled` rows on the first sweep. */
+  it('refuses a session whose entire output was temp files', async () => {
+    const f = writeTranscript('scratch', [
+      usageMsg('2026-09-09T18:00:00.000Z', { output_tokens: 5 }),
+      wroteFile('2026-09-09T18:01:00.000Z', 'C:/Users/LENOVO/AppData/Local/Temp/claude/x/scratchpad/a.md'),
+    ]);
+    const o = readSessionOutcome(f);
+    expect(o?.filesWritten.length).toBe(1);
+    expect(o?.repos).toHaveLength(0);
+    expect(await recordOutcome(new MemoryCustodyStore(), o!)).toBeNull();
+  });
+
   it('skips an unchanged re-fire instead of duplicating the row', async () => {
     const store = new MemoryCustodyStore();
     const o = readSessionOutcome(transcript());
@@ -137,6 +156,107 @@ describe('recordOutcome — receipts earn `fact`, and only one row stays live', 
     expect(rows).toHaveLength(2);
     expect(rows.filter((r) => r.supersededBy === null)).toHaveLength(1);
     expect(rows.find((r) => r.id === first)?.supersededBy).toBe(second);
+  });
+});
+
+describe('readOpenCodeOutcomes — the harness that keeps better books than we do', () => {
+  /** A real SQLite file shaped like OpenCode's, not a mock. */
+  function makeDb(name: string, session: Record<string, unknown>, parts: unknown[]): string {
+    const file = path.join(tmp, `${name}.db`);
+    const db = new DatabaseSync(file);
+    db.exec(`CREATE TABLE session (id TEXT PRIMARY KEY, title TEXT, model TEXT, cost REAL,
+      tokens_input INTEGER, tokens_output INTEGER, tokens_cache_read INTEGER,
+      tokens_cache_write INTEGER, time_created INTEGER, time_updated INTEGER)`);
+    db.exec('CREATE TABLE part (id TEXT PRIMARY KEY, session_id TEXT, data TEXT)');
+    db.prepare(
+      `INSERT INTO session VALUES (@id,@title,@model,@cost,@ti,@to,@tcr,@tcw,@tc,@tu)`,
+    ).run(session);
+    const ins = db.prepare('INSERT INTO part VALUES (?,?,?)');
+    parts.forEach((p, i) => ins.run(`prt_${i}`, String(session['id']), JSON.stringify(p)));
+    db.close();
+    return file;
+  }
+
+  const baseSession = {
+    id: 'ses_test1',
+    title: 'Building apex harness',
+    model: JSON.stringify({ id: 'muse-spark-1.3-contributor-free', variant: 'xhigh' }),
+    cost: 0,
+    ti: 2_219_731,
+    to: 152_388,
+    tcr: 158_961_570,
+    tcw: 0,
+    tc: Date.parse('2026-09-09T18:08:49Z'),
+    tu: Date.parse('2026-09-10T02:25:17Z'),
+  };
+
+  const writePart = (p: string) => ({ type: 'tool', tool: 'write', state: { input: { filePath: p } } });
+  const editPart = (p: string) => ({ type: 'tool', tool: 'edit', state: { input: { filePath: p } } });
+
+  it('reads spend straight from the session row instead of summing messages', () => {
+    const db = makeDb('oc-spend', baseSession, [
+      writePart('C:/Users/LENOVO/tools/apex-memory/src/a.ts'),
+    ]);
+    const [o] = readOpenCodeOutcomes(0, db);
+    expect(o?.spend.input).toBe(2_219_731);
+    expect(o?.spend.cacheRead).toBe(158_961_570);
+    expect(o?.costUsd).toBe(0);
+    expect(o?.title).toBe('Building apex harness');
+  });
+
+  it('unwraps the model JSON blob into an id, because that column is not a string', () => {
+    const db = makeDb('oc-model', baseSession, [writePart('C:/Users/LENOVO/tools/apex-memory/b.ts')]);
+    expect(readOpenCodeOutcomes(0, db)[0]?.spend.models).toEqual([
+      'muse-spark-1.3-contributor-free:xhigh',
+    ]);
+  });
+
+  it('counts write and edit tools, and ignores read/grep/bash', () => {
+    const db = makeDb('oc-tools', baseSession, [
+      writePart('C:/Users/LENOVO/tools/apex-memory/a.ts'),
+      editPart('C:/Users/LENOVO/tools/apex-memory/b.ts'),
+      { type: 'tool', tool: 'read', state: { input: { filePath: 'C:/Users/LENOVO/tools/x/c.ts' } } },
+      { type: 'tool', tool: 'bash', state: { input: { command: 'ls' } } },
+      { type: 'text', text: 'hello' },
+    ]);
+    const [o] = readOpenCodeOutcomes(0, db);
+    expect(o?.filesWritten).toHaveLength(2);
+  });
+
+  /**
+   * The trap that makes this worth testing: session.directory reads
+   * `...\Programs\Warp` for work that landed in kimi-apex. Never file by that column.
+   */
+  it('files by where the work landed, never by the session directory', () => {
+    const db = makeDb('oc-project', baseSession, [
+      writePart('C:/Users/LENOVO/tools/sauce-scan/a.mjs'),
+      writePart('C:/Users/LENOVO/tools/apex-memory/a.ts'),
+      writePart('C:/Users/LENOVO/tools/apex-memory/b.ts'),
+    ]);
+    expect(readOpenCodeOutcomes(0, db)[0]?.project).toBe('apex-memory');
+  });
+
+  it('skips sessions that wrote no files, and honours the since bound', () => {
+    const chat = makeDb('oc-chat', { ...baseSession, id: 'ses_chat' }, [{ type: 'text', text: 'hi' }]);
+    expect(readOpenCodeOutcomes(0, chat)).toHaveLength(0);
+
+    const db = makeDb('oc-since', baseSession, [writePart('C:/Users/LENOVO/tools/apex-memory/a.ts')]);
+    expect(readOpenCodeOutcomes(Date.parse('2026-12-01T00:00:00Z'), db)).toHaveLength(0);
+  });
+
+  it('returns nothing rather than throwing when the database is absent', () => {
+    expect(readOpenCodeOutcomes(0, path.join(tmp, 'no-such.db'))).toEqual([]);
+  });
+
+  it('banks an OpenCode outcome at `fact` with a cost line', async () => {
+    const db = makeDb('oc-bank', baseSession, [writePart('C:/Users/LENOVO/tools/apex-memory/a.ts')]);
+    const store = new MemoryCustodyStore();
+    const [o] = readOpenCodeOutcomes(0, db);
+    expect(await recordOutcome(store, o!)).not.toBeNull();
+    const [row] = await store.list('apex-memory');
+    expect(row?.authority).toBe('fact');
+    expect(row?.text).toContain('cost $0.0000');
+    expect(row?.text).toContain('Building apex harness');
   });
 });
 
