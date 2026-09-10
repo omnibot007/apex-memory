@@ -25,8 +25,33 @@ only): Danbooru safe drill landed byte-verified. Rite: /gallery-rip (live).
 faster-whisper (tools/faster-whisper, MIT take-friendly): george-test.wav via
 tiny/cpu/int8, one word off ground truth. Rite: /whisper-scribe (live).
 
+## Agent limbs (wired 2026-09-10 pm)
+APInex gateway: .apinex-key (53B). OpenAI-compat api.apinex.bond/v1. Proven:
+free/gpt-5.6-luna answered cost 0; gpt-6-astra $0.50/1M (~2M tok/$1) but
+balance 0 (402) - top-up pending. 9 free/ models live. SNI-blocked by Xfinity
+(see Network below) - reachable via WARP.
+AgentMail: omnibot007@agentmail.to, .agentmail-key (org-scoped; rotated today,
+old key at locked .bak-20260910-155552 - revoke old in console when ready).
+MCP live in Claude Code + opencode (x-api-key header). Inbox empty.
+Mireye: .mireye-key (291B) -> MIREYE_API_TOKEN + MIREYE_BEARER_TOKEN. API
+api.mireye.com/v1 (free 5000 credits; elevation drill USGS 13.03m, 200).
+MCP: Claude Code hosted OAuth (sign-in at restart) + opencode local stdio
+adapter mireye-mcp 0.5.0 (connected).
+You.com: .ydc-key (65B) -> YDC_API_KEY. REST /v1/search + /v1/contents proven.
+MCP api.you.com/mcp needs Authorization: Bearer (X-API-Key fails) - fixed in
+opencode; tools you-search/contents/balance/discover; balance 9999. Skill /you
+lists tools not in live MCP (answer/research) - tune pending.
+Stashed: tools/gawkbot, tools/mcp-servers, tools/paseo, tools/google-maps-scrapper.
+
+## Network (2026-09-10): Xfinity SNI block
+Xfinity Advanced Security (safebrowse.io) SNI-filters apinex.bond (443 -> 0xFF
+garbage; 80 -> warn.html). Bypass: Cloudflare WARP tunnel (was stopped; started
++ connected; all traffic via CF while on). Post-reboot: Start-Service
+CloudflareWARP + warp-cli connect. Clean fix: whitelist site in Xfinity app.
+
 ## Keys (paths only — values never enter this repo)
-.go-key, .groq-key, .cerebras-key, .tokenforge-key, .tokenrouter-key
+.go-key, .groq-key, .cerebras-key, .tokenforge-key, .tokenrouter-key,
+.apinex-key, .agentmail-key (+locked old .bak), .mireye-key, .ydc-key
 (all in ~/.config/opencode/, owner-only ACL). Missing: pollinations.
 
 ## Pack-2 (built 2026-09-09, per operator orders)
@@ -45,9 +70,18 @@ a custom pi-ai provider impl before joining rotation. Wrangler 4.130.0 installed
 operator login pending. Agents-starter scaffold + first god port: next cook.
 
 ## Pending missions
-1. REBOOT (hypervisor fix) -> Docker -> Steel legs -> first live fam-browser drive.
-2. Guard-abort drill + god-loop join (Pi loop shape read at cook).
-3. README for apex-pantheon + tokenrouter re-key + pollinations key.
+1. POST-REBOOT: VMP/WSL/HyperV all Enabled (Verified), Docker Desktop installed,
+   WSL2 default docker-desktop - launch Docker Desktop then compose stacks
+   (cloakmail first). Then Steel legs -> first live fam-browser drive.
+2. Voice: start ONE fresh voice-server (logged launch shape, port 17840 check)
+   + warm drill; speak.py capped at 30s server wait (was 600 - wedged server
+   muted narration; reboot clears stuck PIDs). Hood-read queue: hyperresearch
+   vs King G verdict.
+3. Decisions: gawkbot first-run (npx, --provider opencode), paseo install
+   (v0.8.0 win x64 installer or npm @getpaseo/cli), hyperresearch
+   (stash/install/trial), google-maps-scrapper drill, /you skill tune,
+   APInex top-up ($14 ~ 28M gpt-6-astra tokens), revoke old AgentMail key,
+   README apex-pantheon + pollinations key.
 4. Monthly: harvest -> recalibrate -> hell-week -> sidecar.
 
 ## Laws of this memory
