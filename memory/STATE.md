@@ -17,6 +17,15 @@ Watch item: repetition 12/14 (split-noise suspect, telemetry will confirm).
 .go-key, .groq-key, .cerebras-key, .tokenforge-key, .tokenrouter-key
 (all in ~/.config/opencode/, owner-only ACL). Missing: pollinations.
 
+## Pack-2 (built 2026-09-09, per operator orders)
+LIVE: kilo-anon keyless (nemotron-free exact-match, first in pool),
+OVH anon trickle (chat 429'd, rotation absorbs until quota returns).
+Retired: kilo-CLI subprocess (superseded by kilo-anon direct).
+Hardening: per-leg 90s timeouts, 3-strike circuit breaker, 5MB telemetry
+rotation. PARKED per operator: tokenrouter (leg removed from pool),
+gemini (awaiting better keys from operator), ollama (awaiting model pick).
+Go-pennies independent judge: queued (SIMURG side).
+
 ## Cloud (wired 2026-09-09)
 Workers AI leg PROVEN (llama-3.1-8b answers, account 6d329e..bf3fdbc, key
 .cloudflare-key locked). REST shape is NOT OpenAI-compatible (/ai/run/) — needs
