@@ -36,10 +36,102 @@ export interface TranscriptReader {
   read(): Utterance[];
 }
 
-function projectOf(dir: string | null | undefined): string {
-  if (typeof dir !== 'string' || dir.trim().length === 0) return 'default';
-  const base = path.basename(dir.replace(/[/\\]+$/, ''));
-  return base.length > 0 ? base : 'default';
+/**
+ * Where a claim goes when its directory names no project. A real bucket, deliberately:
+ * a home-directory session is one-off or cross-cutting work, and saying so is more honest
+ * than inventing a project from a folder name.
+ */
+export const UNATTRIBUTED = 'unattributed';
+
+/** Markers that make a directory a project root. `.git` first: it is what actually ships. */
+const REPO_MARKERS: readonly string[] = [
+  '.git',
+  'package.json',
+  'pyproject.toml',
+  'Cargo.toml',
+  'go.mod',
+  'pom.xml',
+  'build.gradle',
+  '.hg',
+  '.svn',
+];
+
+/** Directory names that are never a project, however they appear in a path. */
+const NEVER_A_PROJECT = new Set([
+  'appdata',
+  'local',
+  'locallow',
+  'roaming',
+  'program files',
+  'program files (x86)',
+  'programdata',
+  'windows',
+  'system32',
+  'node_modules',
+  'temp',
+  'tmp',
+  'desktop',
+  'downloads',
+  'documents',
+  'users',
+  'home',
+  'src',
+  'dist',
+  'build',
+  'lib',
+  'bin',
+]);
+
+const projectCache = new Map<string, string>();
+
+/**
+ * Project name for a working directory.
+ *
+ * Walks UP to the nearest repo root and uses THAT basename, so a session started in
+ * `tools/apex-memory/src` files as `apex-memory`, not `src`. Returns `unattributed` when no
+ * repo encloses the directory.
+ *
+ * Why this is not `path.basename(dir)`: it was, and that filed 91 rows under `Warp` (a
+ * program directory) and `LENOVO` (the home directory) — 46% of the store at the time. A
+ * project name must come from something that marks a project, never from wherever the
+ * terminal happened to be sitting.
+ */
+export function projectOf(
+  dir: string | null | undefined,
+  exists: (p: string) => boolean = fs.existsSync,
+  homeDir: string = os.homedir(),
+): string {
+  if (typeof dir !== 'string' || dir.trim().length === 0) return UNATTRIBUTED;
+
+  const cached = projectCache.get(dir);
+  if (cached !== undefined) return cached;
+
+  const decide = (): string => {
+    let current = path.resolve(dir.replace(/[/\\]+$/, ''));
+    const home = path.resolve(homeDir);
+
+    // Walk up to the nearest repo root. Stop at the filesystem root.
+    for (let depth = 0; depth < 24; depth++) {
+      // The home directory is never a project, even if it holds a .git.
+      if (current !== home && REPO_MARKERS.some((m) => exists(path.join(current, m)))) {
+        const base = path.basename(current);
+        if (base.length > 0 && !NEVER_A_PROJECT.has(base.toLowerCase())) return base;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+    return UNATTRIBUTED;
+  };
+
+  const result = decide();
+  projectCache.set(dir, result);
+  return result;
+}
+
+/** Test seam: the walk hits the filesystem, so memoisation must be resettable. */
+export function resetProjectCache(): void {
+  projectCache.clear();
 }
 
 function readJsonl(file: string): unknown[] {

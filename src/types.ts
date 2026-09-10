@@ -132,5 +132,13 @@ export interface CustodyStore {
   put(fact: CustodiedFact): Promise<void>;
   get(id: string): Promise<CustodiedFact | undefined>;
   list(project: string): Promise<CustodiedFact[]>;
+  /**
+   * Every row, across every project.
+   *
+   * On the interface because idempotence cannot be project-scoped: a sweep that dedupes
+   * only within one project re-writes a claim the moment its row is filed elsewhere.
+   * That defect duplicated 71 claims on 2026-09-10.
+   */
+  listAll(): Promise<CustodiedFact[]>;
   remove(id: string): Promise<void>;
 }
